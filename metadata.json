@@ -1,0 +1,6 @@
+{
+  "name": "Hawaii Pet",
+  "description": "Una red social para animales donde el más mono es el más famoso. Comparte fotos de tus mascotas, participa en retos y descubre la comunidad más adorable.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

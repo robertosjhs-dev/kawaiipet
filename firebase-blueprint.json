@@ -1,0 +1,100 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and pet information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "avatar": { "type": "string" },
+        "points": { "type": "integer" },
+        "bio": { "type": "string" },
+        "species": { "type": "string" },
+        "breed": { "type": "string" },
+        "age": { "type": "string" },
+        "email": { "type": "string" }
+      },
+      "required": ["name", "email"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Social media post of a pet",
+      "type": "object",
+      "properties": {
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorAvatar": { "type": "string" },
+        "petImage": { "type": "string" },
+        "caption": { "type": "string" },
+        "likesCount": { "type": "integer" },
+        "commentsCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isParticipating": { "type": "boolean" }
+      },
+      "required": ["authorId", "petImage", "createdAt"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "Comment on a post",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "text", "createdAt"]
+    },
+    "Contest": {
+      "title": "Contest",
+      "description": "Active pet contest",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "image": { "type": "string" },
+        "timeLeft": { "type": "string" },
+        "variant": { "type": "string", "enum": ["large", "small"] }
+      },
+      "required": ["title", "image"]
+    },
+    "ChallengeProgress": {
+      "title": "ChallengeProgress",
+      "description": "User's progress on a challenge",
+      "type": "object",
+      "properties": {
+        "completed": { "type": "boolean" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "title": { "type": "string" },
+        "points": { "type": "integer" }
+      },
+      "required": ["completed"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Pet posts"
+    },
+    "/posts/{postId}/comments/{commentId}": {
+      "schema": "Comment",
+      "description": "Post comments"
+    },
+    "/posts/{postId}/likes/{userId}": {
+      "schema": { "type": "object", "properties": { "at": { "type": "string", "format": "date-time" } } },
+      "description": "Post likes tracking"
+    },
+    "/contests/{contestId}": {
+      "schema": "Contest",
+      "description": "Available contests"
+    },
+    "/users/{userId}/challenges/{challengeId}": {
+      "schema": "ChallengeProgress",
+      "description": "User specific challenge progress"
+    }
+  }
+}

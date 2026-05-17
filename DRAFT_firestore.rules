@@ -1,0 +1,118 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Entity Validations ---
+
+    function isValidUser(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 100
+          && data.email is string && data.email.size() <= 100
+          && (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 500))
+          && (!('points' in data) || (data.points is int && data.points >= 0))
+          && (!('bio' in data) || (data.bio is string && data.bio.size() <= 500))
+          && (!('species' in data) || (data.species is string && data.species.size() <= 50))
+          && (!('breed' in data) || (data.breed is string && data.breed.size() <= 50))
+          && (!('age' in data) || (data.age is string && data.age.size() <= 20));
+    }
+
+    function isValidPost(data) {
+      return data.authorId is string && data.authorId == request.auth.uid
+          && data.petImage is string && data.petImage.size() <= 500
+          && data.createdAt == request.time
+          && (!('caption' in data) || (data.caption is string && data.caption.size() <= 1000))
+          && (!('likesCount' in data) || (data.likesCount is int && data.likesCount >= 0))
+          && (!('commentsCount' in data) || (data.commentsCount is int && data.commentsCount >= 0))
+          && (!('isParticipating' in data) || (data.isParticipating is bool));
+    }
+
+    function isValidComment(data) {
+      return data.userId is string && data.userId == request.auth.uid
+          && data.text is string && data.text.size() > 0 && data.text.size() <= 500
+          && data.createdAt == request.time;
+    }
+
+    // --- Collection Rules ---
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn(); // In this app, users might want to see other profiles
+      allow create: if isOwner(userId) && isValidUser(incoming()) 
+                     && incoming().keys().hasAll(['name', 'email'])
+                     && (!('points' in incoming()) || incoming().points == 0); // Start with 0 points
+      allow update: if isOwner(userId) && isValidUser(incoming())
+                     && incoming().email == existing().email // Email immutable for now
+                     && (
+                       // Action: Basic Info update
+                       (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'avatar', 'bio', 'species', 'breed', 'age'])) ||
+                       // Action: Point increment (normally this would be more restricted, but for this demo...)
+                       (incoming().diff(existing()).affectedKeys().hasOnly(['points']))
+                     );
+                     
+      match /challenges/{challengeId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+                               && (incoming().completed == true)
+                               && (incoming().completedAt == request.time);
+      }
+    }
+
+    match /posts/{postId} {
+      allow read: if isSignedIn();
+      allow create: if isEmailVerified() && isValidPost(incoming())
+                     && incoming().keys().hasAll(['authorId', 'petImage', 'createdAt']);
+      allow update: if isSignedIn() && (
+        // Any signed in user can like
+        (incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) && incoming().likesCount == existing().likesCount + 1) ||
+        // Author can edit caption
+        (isOwner(existing().authorId) && incoming().diff(existing()).affectedKeys().hasOnly(['caption', 'petImage', 'isParticipating']))
+      );
+      allow delete: if isOwner(existing().authorId);
+
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        allow create: if isEmailVerified() && isValidComment(incoming())
+                       && get(/databases/$(database)/documents/posts/$(postId)).exists();
+        allow delete: if isOwner(existing().userId) || isOwner(get(/databases/$(database)/documents/posts/$(postId)).data.authorId);
+      }
+
+      match /likes/{userId} {
+        allow read: if isSignedIn();
+        allow write: if isOwner(userId) && incoming().at == request.time;
+      }
+    }
+
+    match /contests/{contestId} {
+      allow read: if isSignedIn();
+      // Only admins should write, but we don't have admins yet. Handled in console.
+    }
+  }
+}
